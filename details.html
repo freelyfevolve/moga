@@ -4,76 +4,137 @@
   <title>Medicine Details</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    label { display: block; margin-top: 10px; }
-    input, button { padding: 10px; width: 100%; max-width: 400px; margin-bottom: 10px; }
+    body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    label { display: block; margin: 10px 0 5px; }
+    input, select, button { width: 100%; padding: 8px; font-size: 16px; }
+    button { margin-top: 20px; }
+    @media (max-width: 600px) {
+      body { padding: 10px; }
+    }
   </style>
 </head>
 <body>
 
-<h2>Medicine Details</h2>
-<div id="info"></div>
+<h2 id="header">Medicine Details</h2>
 
-<h3>Update Stock</h3>
-<label>Stock Used: <input type="number" id="used"></label>
-<label>Stock Bought: <input type="number" id="bought"></label>
-<label>Date of Buying: <input type="date" id="buyDate"></label>
-<button onclick="updateStock()">Update</button>
+<label>Medicine Name: <input type="text" id="name" disabled></label>
+<label>Initial Stock: <input type="number" id="initial"></label>
+<label>Units Sold: <input type="number" id="sold"></label>
+<label>Remaining Stock: <input type="number" id="remaining" disabled></label>
+<label>Reorder Level: <input type="number" id="reorder"></label>
+<label>Status: <input type="text" id="status" disabled></label>
+<label>Date of Buying: <input type="date" id="lastBought"></label>
+
+<button id="saveBtn" style="display:none;" onclick="saveChanges()">Save</button>
+<button onclick="goBack()">Back to List</button>
 
 <script>
   const API = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
+
+  // Parse URL params
   const params = new URLSearchParams(window.location.search);
-  const medName = params.get("name");
+  const medName = params.get('name');
+  const mode = params.get('mode') || 'view'; // default to view
 
-  let current;
+  let medicines = [];
+  let medicine = null;
 
-  async function loadDetails() {
+  async function loadMedicine() {
     const res = await fetch(API);
-    const meds = await res.json();
-    current = meds.find(m => m.name === medName);
-    if (!current) {
-      document.getElementById("info").innerText = "Medicine not found.";
+    medicines = await res.json();
+    medicine = medicines.find(m => m.name === medName);
+    if (!medicine) {
+      alert("Medicine not found.");
+      window.location.href = "index.html";
       return;
     }
 
-    document.getElementById("info").innerHTML = `
-      <p><strong>Name:</strong> ${current.name}</p>
-      <p><strong>Initial Stock:</strong> ${current.initial}</p>
-      <p><strong>Units Sold:</strong> ${current.sold}</p>
-      <p><strong>Remaining:</strong> ${current.initial - current.sold}</p>
-      <p><strong>Reorder Level:</strong> ${current.reorder}</p>
-      <p><strong>Status:</strong> ${current.initial - current.sold <= current.reorder ? "LOW STOCK" : "OK"}</p>
-      <p><strong>Last Bought:</strong> ${current.lastBought || "-"}</p>
-    `;
+    document.getElementById("name").value = medicine.name;
+    document.getElementById("initial").value = medicine.initial;
+    document.getElementById("sold").value = medicine.sold;
+    document.getElementById("lastBought").value = medicine.lastBought || "";
+    updateCalculatedFields();
+
+    if (mode === "view") {
+      disableEditing();
+    } else if (mode === "edit") {
+      enableEditing();
+    }
   }
 
-  async function updateStock() {
-    const used = parseInt(document.getElementById("used").value) || 0;
-    const bought = parseInt(document.getElementById("bought").value) || 0;
-    const buyDate = document.getElementById("buyDate").value;
+  function updateCalculatedFields() {
+    const initial = parseInt(document.getElementById("initial").value) || 0;
+    const sold = parseInt(document.getElementById("sold").value) || 0;
+    const reorder = parseInt(document.getElementById("reorder").value) || 0;
 
-    const newInitial = current.initial + bought;
-    const newSold = current.sold + used;
+    const remaining = initial - sold;
+    document.getElementById("remaining").value = remaining;
+    document.getElementById("status").value = remaining <= reorder ? "LOW STOCK" : "OK";
+  }
 
-    const data = {
-      name: current.name,
-      initial: newInitial,
-      sold: newSold,
-      reorder: current.reorder,
-      lastBought: buyDate || current.lastBought
-    };
+  function disableEditing() {
+    document.getElementById("initial").disabled = true;
+    document.getElementById("sold").disabled = true;
+    document.getElementById("reorder").disabled = true;
+    document.getElementById("lastBought").disabled = true;
+    document.getElementById("saveBtn").style.display = "none";
+    document.getElementById("header").textContent = `Viewing Medicine: ${medicine.name}`;
+  }
 
-    await fetch(API, {
-      method: "POST",
-      body: JSON.stringify(data),
-      headers: { "Content-Type": "application/json" }
+  function enableEditing() {
+    document.getElementById("initial").disabled = false;
+    document.getElementById("sold").disabled = false;
+    document.getElementById("reorder").disabled = false;
+    document.getElementById("lastBought").disabled = false;
+    document.getElementById("saveBtn").style.display = "block";
+    document.getElementById("header").textContent = `Editing Medicine: ${medicine.name}`;
+
+    // Update remaining and status on input change
+    ['initial', 'sold', 'reorder'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateCalculatedFields);
     });
+  }
 
-    alert("Updated!");
+  async function saveChanges() {
+    const initial = parseInt(document.getElementById("initial").value);
+    const sold = parseInt(document.getElementById("sold").value);
+    const reorder = parseInt(document.getElementById("reorder").value);
+    const lastBought = document.getElementById("lastBought").value;
+
+    if (isNaN(initial) || isNaN(sold) || isNaN(reorder)) {
+      alert("Please enter valid numbers.");
+      return;
+    }
+
+    // Update local medicine data
+    medicine.initial = initial;
+    medicine.sold = sold;
+    medicine.reorder = reorder;
+    medicine.lastBought = lastBought;
+
+    // Update medicines array with updated medicine
+    medicines = medicines.map(m => (m.name === medicine.name ? medicine : m));
+
+    // Save full updated list to backend (your backend must support full replace)
+    try {
+      await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ medicines }),
+      });
+      alert("Medicine updated successfully.");
+      window.location.href = "index.html";
+    } catch (e) {
+      alert("Failed to save changes. Try again.");
+      console.error(e);
+    }
+  }
+
+  function goBack() {
     window.location.href = "index.html";
   }
 
-  loadDetails();
+  loadMedicine();
 </script>
 
 </body>
