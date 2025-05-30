@@ -4,12 +4,12 @@
   <title>Medicine Stock Summary</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; margin: 20px; }
+    body { font-family: sans-serif; padding: 20px; }
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
     .low { background-color: #ffcccc; }
     .ok { background-color: #ccffcc; }
-    input, button { margin: 5px 0; padding: 8px; width: 100%; max-width: 400px; display: block; }
+    input, button { margin: 5px 0; padding: 10px; width: 100%; max-width: 400px; display: block; }
     @media (max-width: 600px) {
       th, td { font-size: 14px; padding: 6px; }
     }
@@ -17,107 +17,95 @@
 </head>
 <body>
 
-  <h2>Medicine Stock Summary</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>S.No</th>
-        <th>Medicine Name</th>
-        <th>Initial Stock</th>
-        <th>Units Sold</th>
-        <th>Remaining Stock</th>
-        <th>Reorder Level</th>
-        <th>Status</th>
-        <th>Last Bought Date</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="medicineTable"></tbody>
-  </table>
+<h2>Medicine Stock Summary</h2>
+<table>
+  <thead>
+    <tr>
+      <th>S.No</th>
+      <th>Medicine Name</th>
+      <th>Initial Stock</th>
+      <th>Units Sold</th>
+      <th>Remaining</th>
+      <th>Reorder Level</th>
+      <th>Status</th>
+      <th>Last Bought</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="medicineTable"></tbody>
+</table>
 
-  <h3>Add New Medicine</h3>
-  <label>Medicine Name: <input type="text" id="name"></label>
-  <label>Initial Stock: <input type="number" id="initial"></label>
-  <label>Units Sold: <input type="number" id="sold"></label>
-  <label>Reorder Level: <input type="number" id="reorder"></label>
-  <button onclick="addMedicine()">Add Medicine</button>
+<h3>Add New Medicine</h3>
+<label>Medicine Name: <input type="text" id="name"></label>
+<label>Initial Stock: <input type="number" id="initial"></label>
+<label>Units Sold: <input type="number" id="sold"></label>
+<label>Reorder Level: <input type="number" id="reorder"></label>
+<label>Last Bought Date: <input type="date" id="lastBought"></label>
+<button onclick="addMedicine()">Add Medicine</button>
 
-  <script>
-    function loadMedicines() {
-      const table = document.getElementById("medicineTable");
-      const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
-      table.innerHTML = "";
-      medicines.forEach((med, index) => {
-        const remaining = med.initial - med.sold;
-        const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
-        const row = document.createElement("tr");
-        row.className = status === "LOW STOCK" ? "low" : "ok";
-        row.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${med.name}</td>
-          <td>${med.initial}</td>
-          <td>${med.sold}</td>
-          <td>${remaining}</td>
-          <td>${med.reorder}</td>
-          <td>${status}</td>
-          <td>${med.lastBought || "-"}</td>
-          <td>
-            <button onclick="viewMedicine('${med.name}')">View</button>
-            <button onclick="editMedicine('${med.name}')">Edit</button>
-            <button onclick="deleteMedicine('${med.name}')">Delete</button>
-          </td>
-        `;
-        table.appendChild(row);
-      });
+<script>
+  const API = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
+
+  async function loadMedicines() {
+    const res = await fetch(API);
+    const meds = await res.json();
+    const table = document.getElementById("medicineTable");
+    table.innerHTML = "";
+    meds.forEach((med, i) => {
+      const remaining = med.initial - med.sold;
+      const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
+      const row = document.createElement("tr");
+      row.className = status === "LOW STOCK" ? "low" : "ok";
+      row.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${med.name}</td>
+        <td>${med.initial}</td>
+        <td>${med.sold}</td>
+        <td>${remaining}</td>
+        <td>${med.reorder}</td>
+        <td>${status}</td>
+        <td>${med.lastBought || "-"}</td>
+        <td>
+          <button onclick="viewMedicine('${med.name}')">View</button>
+        </td>
+      `;
+      table.appendChild(row);
+    });
+  }
+
+  async function addMedicine() {
+    const name = document.getElementById("name").value.trim();
+    const initial = parseInt(document.getElementById("initial").value);
+    const sold = parseInt(document.getElementById("sold").value);
+    const reorder = parseInt(document.getElementById("reorder").value);
+    const lastBought = document.getElementById("lastBought").value;
+
+    if (!name || isNaN(initial) || isNaN(sold) || isNaN(reorder)) {
+      alert("Please fill all fields.");
+      return;
     }
 
-    function addMedicine() {
-      const name = document.getElementById("name").value.trim();
-      const initial = parseInt(document.getElementById("initial").value);
-      const sold = parseInt(document.getElementById("sold").value);
-      const reorder = parseInt(document.getElementById("reorder").value);
+    const data = { name, initial, sold, reorder, lastBought };
+    await fetch(API, {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: { "Content-Type": "application/json" }
+    });
 
-      if (!name || isNaN(initial) || isNaN(sold) || isNaN(reorder)) {
-        alert("Please fill all fields correctly.");
-        return;
-      }
-
-      const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
-      if (medicines.some(m => m.name.toLowerCase() === name.toLowerCase())) {
-        alert("Medicine already exists.");
-        return;
-      }
-
-      medicines.push({ name, initial, sold, reorder, lastBought: "-" });
-      localStorage.setItem("medicines", JSON.stringify(medicines));
-      document.getElementById("name").value = "";
-      document.getElementById("initial").value = "";
-      document.getElementById("sold").value = "";
-      document.getElementById("reorder").value = "";
-      loadMedicines();
-    }
-
-    function viewMedicine(name) {
-      window.location.href = `details.html?name=${encodeURIComponent(name)}`;
-    }
-
-    function editMedicine(name) {
-      window.location.href = `details.html?name=${encodeURIComponent(name)}`;
-    }
-
-    function deleteMedicine(name) {
-      if (confirm(`Are you sure you want to delete ${name}?`)) {
-        let medicines = JSON.parse(localStorage.getItem("medicines")) || [];
-        medicines = medicines.filter(m => m.name !== name);
-        localStorage.setItem("medicines", JSON.stringify(medicines));
-        loadMedicines();
-      }
-    }
-
-    // Auto-refresh on return
-    window.addEventListener("focus", loadMedicines);
+    document.getElementById("name").value = "";
+    document.getElementById("initial").value = "";
+    document.getElementById("sold").value = "";
+    document.getElementById("reorder").value = "";
+    document.getElementById("lastBought").value = "";
     loadMedicines();
-  </script>
+  }
+
+  function viewMedicine(name) {
+    window.location.href = `details.html?name=${encodeURIComponent(name)}`;
+  }
+
+  loadMedicines();
+</script>
 
 </body>
 </html>
