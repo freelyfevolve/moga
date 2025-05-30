@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Medicine Stock Summary</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin: 10px; }
+    table { border-collapse: collapse; width: 100%; max-width: 600px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f4f4f4; }
+    .low { color: red; font-weight: bold; }
+    .ok { color: green; }
+    input, button { margin: 5px 0; padding: 6px; width: 100%; max-width: 300px; box-sizing: border-box; }
+    form { margin-top: 20px; max-width: 320px; }
+    @media (max-width: 600px) {
+      table, th, td { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<h2>Medicine Stock Summary</h2>
+
+<table id="medicineTable">
+  <thead>
+    <tr>
+      <th>S.No</th>
+      <th>Medicine Name</th>
+      <th>Initial Stock</th>
+      <th>Units Sold</th>
+      <th>Remaining Stock</th>
+      <th>Reorder Level</th>
+      <th>Status</th>
+      <th>Last Bought Date</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<h3>Add New Medicine</h3>
+<form id="addMedicineForm">
+  <input type="text" id="name" placeholder="Medicine Name" required />
+  <input type="number" id="initial" placeholder="Initial Stock" min="0" required />
+  <input type="number" id="sold" placeholder="Units Sold" min="0" value="0" required />
+  <input type="number" id="reorder" placeholder="Reorder Level" min="0" required />
+  <input type="date" id="lastBought" placeholder="Last Bought Date" />
+  <button type="submit">Add Medicine</button>
+</form>
+
+<br>
+<a href="details.html">Go to Medicine Details Page →</a>
+
+<script>
+  const tableBody = document.querySelector('#medicineTable tbody');
+  const form = document.getElementById('addMedicineForm');
+
+  let medicines = JSON.parse(localStorage.getItem('medicines')) || [];
+
+  function renderTable() {
+    tableBody.innerHTML = '';
+    medicines.forEach((med, index) => {
+      const remaining = med.initial - med.sold;
+      const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
+      const statusClass = status === "LOW STOCK" ? "low" : "ok";
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${med.name}</td>
+        <td>${med.initial}</td>
+        <td>${med.sold}</td>
+        <td>${remaining}</td>
+        <td>${med.reorder}</td>
+        <td class="${statusClass}">${status}</td>
+        <td>${med.lastBought || '-'}</td>
+      `;
+      tableBody.appendChild(row);
+    });
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+
+    const name = document.getElementById('name').value.trim();
+    const initial = parseInt(document.getElementById('initial').value);
+    const sold = parseInt(document.getElementById('sold').value);
+    const reorder = parseInt(document.getElementById('reorder').value);
+    const lastBought = document.getElementById('lastBought').value;
+
+    // Check for duplicate medicine names (case-insensitive)
+    if (medicines.some(med => med.name.toLowerCase() === name.toLowerCase())) {
+      alert('Medicine already exists!');
+      return;
+    }
+
+    medicines.push({
+      name,
+      initial,
+      sold,
+      reorder,
+      lastBought
+    });
+
+    localStorage.setItem('medicines', JSON.stringify(medicines));
+
+    form.reset();
+    renderTable();
+  });
+
+  // Initial render
+  renderTable();
+</script>
+
+</body>
+</html>
