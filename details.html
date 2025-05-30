@@ -4,91 +4,77 @@
   <title>Medicine Details</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    label, input, button { display: block; margin: 10px 0; width: 100%; max-width: 400px; }
-    span { font-weight: bold; }
-    @media (max-width: 600px) {
-      label, input, button { font-size: 14px; }
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    label { display: block; margin-top: 10px; }
+    input, button { padding: 10px; width: 100%; max-width: 400px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
 
-  <h2>Medicine Details</h2>
+<h2>Medicine Details</h2>
+<div id="info"></div>
 
-  <div id="displayArea">
-    <p><span>Name:</span> <span id="name"></span></p>
-    <p><span>Initial Stock:</span> <span id="initial"></span></p>
-    <p><span>Units Sold:</span> <span id="sold"></span></p>
-    <p><span>Remaining Stock:</span> <span id="remaining"></span></p>
-    <p><span>Reorder Level:</span> <span id="reorder"></span></p>
-    <p><span>Status:</span> <span id="status"></span></p>
-    <p><span>Last Bought Date:</span> <span id="lastBought"></span></p>
-  </div>
+<h3>Update Stock</h3>
+<label>Stock Used: <input type="number" id="used"></label>
+<label>Stock Bought: <input type="number" id="bought"></label>
+<label>Date of Buying: <input type="date" id="buyDate"></label>
+<button onclick="updateStock()">Update</button>
 
-  <h3>Edit Stock</h3>
-  <label>Stock Used: <input type="number" id="stockUsed"></label>
-  <label>Stock Bought: <input type="number" id="stockBought"></label>
-  <label>Date of Buying: <input type="date" id="dateBought"></label>
-  <button onclick="updateStock()">Update</button>
-  <button onclick="goBack()">← Back to Summary</button>
+<script>
+  const API = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
+  const params = new URLSearchParams(window.location.search);
+  const medName = params.get("name");
 
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const medicineName = urlParams.get("name");
+  let current;
 
-    const nameEl = document.getElementById("name");
-    const initialEl = document.getElementById("initial");
-    const soldEl = document.getElementById("sold");
-    const remainingEl = document.getElementById("remaining");
-    const reorderEl = document.getElementById("reorder");
-    const statusEl = document.getElementById("status");
-    const lastBoughtEl = document.getElementById("lastBought");
-
-    let medicines = JSON.parse(localStorage.getItem("medicines")) || [];
-    let medicine = medicines.find(m => m.name === medicineName);
-
-    function loadData() {
-      if (!medicine) {
-        alert("Medicine not found.");
-        return;
-      }
-
-      const remaining = medicine.initial - medicine.sold;
-      const status = remaining <= medicine.reorder ? "LOW STOCK" : "OK";
-
-      nameEl.textContent = medicine.name;
-      initialEl.textContent = medicine.initial;
-      soldEl.textContent = medicine.sold;
-      remainingEl.textContent = remaining;
-      reorderEl.textContent = medicine.reorder;
-      statusEl.textContent = status;
-      lastBoughtEl.textContent = medicine.lastBought || "-";
+  async function loadDetails() {
+    const res = await fetch(API);
+    const meds = await res.json();
+    current = meds.find(m => m.name === medName);
+    if (!current) {
+      document.getElementById("info").innerText = "Medicine not found.";
+      return;
     }
 
-    function updateStock() {
-      const used = parseInt(document.getElementById("stockUsed").value) || 0;
-      const bought = parseInt(document.getElementById("stockBought").value) || 0;
-      const date = document.getElementById("dateBought").value;
+    document.getElementById("info").innerHTML = `
+      <p><strong>Name:</strong> ${current.name}</p>
+      <p><strong>Initial Stock:</strong> ${current.initial}</p>
+      <p><strong>Units Sold:</strong> ${current.sold}</p>
+      <p><strong>Remaining:</strong> ${current.initial - current.sold}</p>
+      <p><strong>Reorder Level:</strong> ${current.reorder}</p>
+      <p><strong>Status:</strong> ${current.initial - current.sold <= current.reorder ? "LOW STOCK" : "OK"}</p>
+      <p><strong>Last Bought:</strong> ${current.lastBought || "-"}</p>
+    `;
+  }
 
-      medicine.initial += bought;
-      medicine.sold += used;
-      if (bought > 0 && date) medicine.lastBought = date;
+  async function updateStock() {
+    const used = parseInt(document.getElementById("used").value) || 0;
+    const bought = parseInt(document.getElementById("bought").value) || 0;
+    const buyDate = document.getElementById("buyDate").value;
 
-      localStorage.setItem("medicines", JSON.stringify(medicines));
-      loadData();
+    const newInitial = current.initial + bought;
+    const newSold = current.sold + used;
 
-      document.getElementById("stockUsed").value = "";
-      document.getElementById("stockBought").value = "";
-      document.getElementById("dateBought").value = "";
-    }
+    const data = {
+      name: current.name,
+      initial: newInitial,
+      sold: newSold,
+      reorder: current.reorder,
+      lastBought: buyDate || current.lastBought
+    };
 
-    function goBack() {
-      window.location.href = "index.html";
-    }
+    await fetch(API, {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: { "Content-Type": "application/json" }
+    });
 
-    loadData();
-  </script>
+    alert("Updated!");
+    window.location.href = "index.html";
+  }
+
+  loadDetails();
+</script>
 
 </body>
 </html>
