@@ -46,12 +46,18 @@
 <script>
   const API = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
 
+  let medicines = [];
+
   async function loadMedicines() {
     const res = await fetch(API);
-    const meds = await res.json();
+    medicines = await res.json();
+    renderTable();
+  }
+
+  function renderTable() {
     const table = document.getElementById("medicineTable");
     table.innerHTML = "";
-    meds.forEach((med, i) => {
+    medicines.forEach((med, i) => {
       const remaining = med.initial - med.sold;
       const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
       const row = document.createElement("tr");
@@ -67,6 +73,8 @@
         <td>${med.lastBought || "-"}</td>
         <td>
           <button onclick="viewMedicine('${med.name}')">View</button>
+          <button onclick="editMedicine('${med.name}')">Edit</button>
+          <button onclick="deleteMedicine('${med.name}')">Delete</button>
         </td>
       `;
       table.appendChild(row);
@@ -85,23 +93,51 @@
       return;
     }
 
-    const data = { name, initial, sold, reorder, lastBought };
+    if (medicines.some(m => m.name.toLowerCase() === name.toLowerCase())) {
+      alert("Medicine already exists.");
+      return;
+    }
+
+    // Add new medicine locally
+    medicines.push({ name, initial, sold, reorder, lastBought });
+
+    // Save full updated list to backend (you must have a backend API that supports full update)
+    await saveMedicines();
+
+    clearForm();
+    renderTable();
+  }
+
+  async function saveMedicines() {
+    // This will send full medicines array to backend to replace data (backend must support)
     await fetch(API, {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ medicines }),
       headers: { "Content-Type": "application/json" }
     });
+  }
 
+  function clearForm() {
     document.getElementById("name").value = "";
     document.getElementById("initial").value = "";
     document.getElementById("sold").value = "";
     document.getElementById("reorder").value = "";
     document.getElementById("lastBought").value = "";
-    loadMedicines();
   }
 
   function viewMedicine(name) {
-    window.location.href = `details.html?name=${encodeURIComponent(name)}`;
+    window.location.href = `details.html?name=${encodeURIComponent(name)}&mode=view`;
+  }
+
+  function editMedicine(name) {
+    window.location.href = `details.html?name=${encodeURIComponent(name)}&mode=edit`;
+  }
+
+  async function deleteMedicine(name) {
+    if (!confirm(`Delete medicine "${name}"? This action cannot be undone.`)) return;
+    medicines = medicines.filter(m => m.name !== name);
+    await saveMedicines();
+    renderTable();
   }
 
   loadMedicines();
