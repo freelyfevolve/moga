@@ -1,0 +1,53 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Medicine Details</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin:20px; max-width:600px; }
+    label{display:block;margin:8px 0 4px;}
+    input,button{width:100%;padding:8px;margin-bottom:10px;}
+  </style>
+</head>
+<body>
+<h2 id="title">Medicine</h2>
+<div id="info"></div>
+<hr>
+<h3 id="editHead">Adjust Stock</h3>
+<label>Stock Used:<input type="number" id="used"></label>
+<label>Stock Bought:<input type="number" id="bought"></label>
+<button id="saveBtn" onclick="save()">Save</button>
+<button onclick="location='index.html'">Back</button>
+
+<script>
+const API="https://script.google.com/macros/s/AKfycbyA41BWjuryz8_fpwEU_hoX31A6ma0En2MsZeygfnF51ALwAg6yuoGQEHZerJnGapl6zA/exec";
+const qp=new URLSearchParams(location.search);
+const name=qp.get('name');const mode=qp.get('mode')||'view';
+document.getElementById('title').textContent=name;
+
+async function load(){
+ const res=await fetch(API);const meds=await res.json();
+ const m=meds.find(x=>x.name===name); if(!m){document.body.innerHTML='Not found';return;}
+ document.getElementById('info').innerHTML=`
+   <p><b>Initial:</b> ${m.initial}</p>
+   <p><b>Sold:</b> ${m.sold}</p>
+   <p><b>Remaining:</b> ${m.initial-m.sold}</p>
+   <p><b>Reorder:</b> ${m.reorder}</p>
+   <p><b>Last Bought:</b> ${m.lastBought||'-'}</p>`;
+ if(mode==='view'){document.getElementById('editHead').style.display=
+  document.getElementById('used').style.display=
+  document.getElementById('bought').style.display=
+  document.getElementById('saveBtn').style.display='none';}
+}
+async function save(){
+ const used=+document.getElementById('used').value||0;
+ const bought=+document.getElementById('bought').value||0;
+ const res=await fetch(API);const meds=await res.json();
+ const m=meds.find(x=>x.name===name); if(!m)return;
+ const body={name,initial:m.initial+bought-used,sold:m.sold,reorder:m.reorder,lastBought:new Date().toISOString().split('T')[0]};
+ await fetch(API,{method:'POST',body:JSON.stringify(body)}); alert('Saved'); location='index.html';
+}
+load();
+</script>
+</body></html>

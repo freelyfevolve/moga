@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Medicine Stock Summary</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin:20px; }
+    table { border-collapse: collapse; width:100%; }
+    th,td { border:1px solid #ccc; padding:10px; text-align:center; }
+    .low { background:#ffcccc; }
+    .ok { background:#ccffcc; }
+    input,button { margin:5px 0; padding:8px; width:100%; max-width:400px; display:block; }
+  </style>
+</head>
+<body>
+  <h2>Medicine Stock Summary</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>S.No</th><th>Name</th><th>Initial</th><th>Sold</th><th>Remaining</th>
+        <th>Reorder</th><th>Status</th><th>Last Bought</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <h3>Add New Medicine</h3>
+  <label>Name:<input id="name"></label>
+  <label>Initial Stock:<input type="number" id="initial"></label>
+  <label>Units Sold:<input type="number" id="sold"></label>
+  <label>Reorder Level:<input type="number" id="reorder"></label>
+  <button onclick="addMed()">Add</button>
+
+<script>
+const API="https://script.google.com/macros/s/AKfycbyA41BWjuryz8_fpwEU_hoX31A6ma0En2MsZeygfnF51ALwAg6yuoGQEHZerJnGapl6zA/exec";
+
+async function fetchData(){
+  const res = await fetch(API);
+  const meds = await res.json();
+  const tb=document.getElementById('tbody');
+  tb.innerHTML='';
+  meds.forEach((m,i)=>{
+    const remaining=m.initial-m.sold;
+    const status=remaining<=m.reorder?'LOW STOCK':'OK';
+    tb.insertAdjacentHTML('beforeend',`
+      <tr class="${status==='LOW STOCK'?'low':'ok'}">
+        <td>${i+1}</td><td>${m.name}</td><td>${m.initial}</td>
+        <td>${m.sold}</td><td>${remaining}</td><td>${m.reorder}</td>
+        <td>${status}</td><td>${m.lastBought||'-'}</td>
+        <td>
+          <button onclick="location='details.html?name=${encodeURIComponent(m.name)}&mode=view'">View</button>
+          <button onclick="location='details.html?name=${encodeURIComponent(m.name)}&mode=edit'">Edit</button>
+          <button onclick="delMed('${m.name}')">Delete</button>
+        </td>
+      </tr>`);});
+}
+
+async function addMed(){
+  const body={name:document.getElementById('name').value.trim(),
+              initial:+document.getElementById('initial').value,
+              sold:+document.getElementById('sold').value,
+              reorder:+document.getElementById('reorder').value,
+              lastBought:new Date().toISOString().split('T')[0]};
+  if(!body.name||isNaN(body.initial)||isNaN(body.sold)||isNaN(body.reorder)){alert('fill');return;}
+  await fetch(API,{method:'POST',body:JSON.stringify(body)});fetchData();
+}
+
+async function delMed(name){
+  if(!confirm('Delete '+name+'?'))return;
+  await fetch(API+'?name='+encodeURIComponent(name),{method:'DELETE'});
+  fetchData();
+}
+window.onload=fetchData;
+</script>
+</body></html>
