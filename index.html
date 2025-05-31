@@ -25,7 +25,7 @@
         <th>Medicine Name</th>
         <th>Initial Stock</th>
         <th>Units Sold</th>
-        <th>Remaining</th>
+        <th>Remaining Stock</th>
         <th>Reorder Level</th>
         <th>Status</th>
         <th>Last Bought Date</th>
@@ -44,40 +44,42 @@
   <button onclick="addMedicine()">Add Medicine</button>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyA41BWjuryz8_fpwEU_hoX31A6ma0En2MsZeygfnF51ALwAg6yuoGQEHZerJnGapl6zA/exec';
 
-    function loadMedicines() {
-      fetch(API_URL + "?action=read")
-        .then(res => res.json())
-        .then(data => {
-          const table = document.getElementById("medicineTable");
-          table.innerHTML = "";
-          data.forEach((med, index) => {
-            const remaining = med.initial - med.sold;
-            const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
-            const row = document.createElement("tr");
-            row.className = status === "LOW STOCK" ? "low" : "ok";
-            row.innerHTML = `
-              <td>${index + 1}</td>
-              <td>${med.name}</td>
-              <td>${med.initial}</td>
-              <td>${med.sold}</td>
-              <td>${remaining}</td>
-              <td>${med.reorder}</td>
-              <td>${status}</td>
-              <td>${med.lastBought || "-"}</td>
-              <td>
-                <button onclick="viewMedicine('${med.name}')">View</button>
-                <button onclick="editMedicine('${med.name}')">Edit</button>
-                <button onclick="deleteMedicine('${med.name}')">Delete</button>
-              </td>
-            `;
-            table.appendChild(row);
-          });
+    async function loadMedicines() {
+      try {
+        const res = await fetch(API_URL + '?action=get');
+        const medicines = await res.json();
+        const table = document.getElementById("medicineTable");
+        table.innerHTML = "";
+        medicines.forEach((med, index) => {
+          const remaining = med.initial - med.sold;
+          const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
+          const row = document.createElement("tr");
+          row.className = status === "LOW STOCK" ? "low" : "ok";
+          row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${med.name}</td>
+            <td>${med.initial}</td>
+            <td>${med.sold}</td>
+            <td>${remaining}</td>
+            <td>${med.reorder}</td>
+            <td>${status}</td>
+            <td>${med.lastBought || "-"}</td>
+            <td>
+              <button onclick="viewMedicine('${encodeURIComponent(med.name)}')">View</button>
+              <button onclick="editMedicine('${encodeURIComponent(med.name)}')">Edit</button>
+              <button onclick="deleteMedicine('${encodeURIComponent(med.name)}')">Delete</button>
+            </td>
+          `;
+          table.appendChild(row);
         });
+      } catch (e) {
+        alert('Error loading medicines: ' + e.message);
+      }
     }
 
-    function addMedicine() {
+    async function addMedicine() {
       const name = document.getElementById("name").value.trim();
       const initial = parseInt(document.getElementById("initial").value);
       const sold = parseInt(document.getElementById("sold").value);
@@ -89,48 +91,65 @@
         return;
       }
 
-      const payload = {
-        action: "add",
-        name,
-        initial,
-        sold,
-        reorder,
-        lastBought
-      };
+      const newMed = { name, initial, sold, reorder, lastBought };
 
-      fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-      .then(() => {
-        document.getElementById("name").value = "";
-        document.getElementById("initial").value = "";
-        document.getElementById("sold").value = "";
-        document.getElementById("reorder").value = "";
-        document.getElementById("lastBought").value = "";
-        loadMedicines();
-      });
-    }
-
-    function viewMedicine(name) {
-      window.location.href = `details.html?name=${encodeURIComponent(name)}&view=true`;
-    }
-
-    function editMedicine(name) {
-      window.location.href = `details.html?name=${encodeURIComponent(name)}&view=false`;
-    }
-
-    function deleteMedicine(name) {
-      if (confirm(`Are you sure you want to delete "${name}"?`)) {
-        fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "delete", name })
-        }).then(() => loadMedicines());
+      try {
+        const res = await fetch(API_URL + '?action=add', {
+          method: 'POST',
+          body: JSON.stringify(newMed),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const text = await res.text();
+        if (text === 'Added') {
+          alert('Medicine added successfully');
+          clearForm();
+          loadMedicines();
+        } else {
+          alert('Error: ' + text);
+        }
+      } catch (e) {
+        alert('Error adding medicine: ' + e.message);
       }
     }
 
+    async function deleteMedicine(name) {
+      if (!confirm("Are you sure you want to delete " + decodeURIComponent(name) + "?")) return;
+
+      try {
+        const res = await fetch(API_URL + '?action=delete', {
+          method: 'POST',
+          body: JSON.stringify({ name: decodeURIComponent(name) }),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const text = await res.text();
+        if (text === 'Deleted') {
+          alert('Medicine deleted');
+          loadMedicines();
+        } else {
+          alert('Error: ' + text);
+        }
+      } catch (e) {
+        alert('Error deleting medicine: ' + e.message);
+      }
+    }
+
+    function viewMedicine(name) {
+      window.location.href = `details.html?name=${name}&mode=view`;
+    }
+
+    function editMedicine(name) {
+      window.location.href = `details.html?name=${name}&mode=edit`;
+    }
+
+    function clearForm() {
+      document.getElementById("name").value = "";
+      document.getElementById("initial").value = "";
+      document.getElementById("sold").value = "";
+      document.getElementById("reorder").value = "";
+      document.getElementById("lastBought").value = "";
+    }
+
+    window.addEventListener("focus", loadMedicines);
     loadMedicines();
   </script>
 
