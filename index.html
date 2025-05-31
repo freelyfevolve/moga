@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -26,7 +25,7 @@
         <th>Medicine Name</th>
         <th>Initial Stock</th>
         <th>Units Sold</th>
-        <th>Remaining Stock</th>
+        <th>Remaining</th>
         <th>Reorder Level</th>
         <th>Status</th>
         <th>Last Bought Date</th>
@@ -41,82 +40,95 @@
   <label>Initial Stock: <input type="number" id="initial"></label>
   <label>Units Sold: <input type="number" id="sold"></label>
   <label>Reorder Level: <input type="number" id="reorder"></label>
+  <label>Last Bought Date: <input type="date" id="lastBought"></label>
   <button onclick="addMedicine()">Add Medicine</button>
 
   <script>
-    const API = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
-    let medicines = [];
+    const API_URL = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
 
-    async function loadMedicines() {
-      const res = await fetch(API);
-      medicines = await res.json();
-      const table = document.getElementById("medicineTable");
-      table.innerHTML = "";
-
-      medicines.forEach((med, index) => {
-        const remaining = med.initial - med.sold;
-        const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
-        const row = document.createElement("tr");
-        row.className = status === "LOW STOCK" ? "low" : "ok";
-        row.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${med.name}</td>
-          <td>${med.initial}</td>
-          <td>${med.sold}</td>
-          <td>${remaining}</td>
-          <td>${med.reorder}</td>
-          <td>${status}</td>
-          <td>${med.lastBought || "-"}</td>
-          <td>
-            <button onclick="window.location.href='details.html?name=${encodeURIComponent(med.name)}&mode=view'">View</button>
-            <button onclick="window.location.href='details.html?name=${encodeURIComponent(med.name)}&mode=edit'">Edit</button>
-            <button onclick="deleteMedicine('${med.name}')">Delete</button>
-          </td>
-        `;
-        table.appendChild(row);
-      });
+    function loadMedicines() {
+      fetch(API_URL + "?action=read")
+        .then(res => res.json())
+        .then(data => {
+          const table = document.getElementById("medicineTable");
+          table.innerHTML = "";
+          data.forEach((med, index) => {
+            const remaining = med.initial - med.sold;
+            const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
+            const row = document.createElement("tr");
+            row.className = status === "LOW STOCK" ? "low" : "ok";
+            row.innerHTML = `
+              <td>${index + 1}</td>
+              <td>${med.name}</td>
+              <td>${med.initial}</td>
+              <td>${med.sold}</td>
+              <td>${remaining}</td>
+              <td>${med.reorder}</td>
+              <td>${status}</td>
+              <td>${med.lastBought || "-"}</td>
+              <td>
+                <button onclick="viewMedicine('${med.name}')">View</button>
+                <button onclick="editMedicine('${med.name}')">Edit</button>
+                <button onclick="deleteMedicine('${med.name}')">Delete</button>
+              </td>
+            `;
+            table.appendChild(row);
+          });
+        });
     }
 
-    async function deleteMedicine(name) {
-      if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-      medicines = medicines.filter(m => m.name !== name);
-      await fetch(API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ medicines }),
-      });
-      loadMedicines();
-    }
-
-    async function addMedicine() {
+    function addMedicine() {
       const name = document.getElementById("name").value.trim();
       const initial = parseInt(document.getElementById("initial").value);
       const sold = parseInt(document.getElementById("sold").value);
       const reorder = parseInt(document.getElementById("reorder").value);
+      const lastBought = document.getElementById("lastBought").value;
 
       if (!name || isNaN(initial) || isNaN(sold) || isNaN(reorder)) {
         alert("Please fill all fields correctly.");
         return;
       }
 
-      if (medicines.some(m => m.name.toLowerCase() === name.toLowerCase())) {
-        alert("Medicine already exists.");
-        return;
-      }
+      const payload = {
+        action: "add",
+        name,
+        initial,
+        sold,
+        reorder,
+        lastBought
+      };
 
-      medicines.push({ name, initial, sold, reorder, lastBought: new Date().toISOString().split('T')[0] });
-
-      await fetch(API, {
+      fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ medicines }),
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        document.getElementById("name").value = "";
+        document.getElementById("initial").value = "";
+        document.getElementById("sold").value = "";
+        document.getElementById("reorder").value = "";
+        document.getElementById("lastBought").value = "";
+        loadMedicines();
       });
+    }
 
-      document.getElementById("name").value = "";
-      document.getElementById("initial").value = "";
-      document.getElementById("sold").value = "";
-      document.getElementById("reorder").value = "";
-      loadMedicines();
+    function viewMedicine(name) {
+      window.location.href = `details.html?name=${encodeURIComponent(name)}&view=true`;
+    }
+
+    function editMedicine(name) {
+      window.location.href = `details.html?name=${encodeURIComponent(name)}&view=false`;
+    }
+
+    function deleteMedicine(name) {
+      if (confirm(`Are you sure you want to delete "${name}"?`)) {
+        fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "delete", name })
+        }).then(() => loadMedicines());
+      }
     }
 
     loadMedicines();
