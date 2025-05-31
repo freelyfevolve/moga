@@ -4,68 +4,87 @@
   <title>Medicine Details</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    label, input, button { display: block; margin: 10px 0; width: 100%; max-width: 400px; padding: 8px; }
-    .back-link { margin-top: 20px; display: inline-block; }
+    body { font-family: sans-serif; margin: 20px; max-width: 600px; }
+    label { display: block; margin: 10px 0 5px; }
+    input, button, select { width: 100%; padding: 8px; margin-bottom: 10px; }
+    button { max-width: 200px; }
   </style>
 </head>
 <body>
 
-  <h2>Medicine Details</h2>
-  <label>Medicine Name: <input type="text" id="name" disabled></label>
-  <label>Initial Stock: <input type="number" id="initial"></label>
-  <label>Units Sold: <input type="number" id="sold"></label>
-  <label>Reorder Level: <input type="number" id="reorder"></label>
-  <label>Last Bought Date: <input type="date" id="lastBought"></label>
-  <button id="saveBtn" onclick="saveChanges()">Save Changes</button>
-  <a href="index.html" class="back-link">Back to Summary</a>
+  <h2 id="pageTitle">Medicine Details</h2>
+
+  <label>Medicine Name:
+    <input type="text" id="name" disabled>
+  </label>
+  <label>Initial Stock:
+    <input type="number" id="initial" disabled>
+  </label>
+  <label>Units Sold:
+    <input type="number" id="sold" disabled>
+  </label>
+  <label>Remaining Stock:
+    <input type="number" id="remaining" disabled>
+  </label>
+  <label>Reorder Level:
+    <input type="number" id="reorder" disabled>
+  </label>
+  <label>Status:
+    <input type="text" id="status" disabled>
+  </label>
+  <label>Last Bought Date:
+    <input type="date" id="lastBought" disabled>
+  </label>
+
+  <hr>
+
+  <label>Stock Used (subtract from Initial Stock):
+    <input type="number" id="stockUsed" min="0" value="0">
+  </label>
+  <label>Stock Bought (add to Initial Stock):
+    <input type="number" id="stockBought" min="0" value="0">
+  </label>
+  <label>Date of Buying:
+    <input type="date" id="dateOfBuying" value="">
+  </label>
+
+  <button id="saveBtn">Save Changes</button>
+  <button onclick="goBack()">Back to Summary</button>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
-    const params = new URLSearchParams(window.location.search);
-    const medicineName = params.get("name");
-    const viewOnly = params.get("view") === "true";
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyA41BWjuryz8_fpwEU_hoX31A6ma0En2MsZeygfnF51ALwAg6yuoGQEHZerJnGapl6zA/exec';
 
-    function loadMedicine() {
-      fetch(API_URL + "?action=read")
-        .then(res => res.json())
-        .then(data => {
-          const med = data.find(m => m.name === medicineName);
-          if (med) {
-            document.getElementById("name").value = med.name;
-            document.getElementById("initial").value = med.initial;
-            document.getElementById("sold").value = med.sold;
-            document.getElementById("reorder").value = med.reorder;
-            document.getElementById("lastBought").value = med.lastBought || "";
-          }
+    const urlParams = new URLSearchParams(window.location.search);
+    const medName = decodeURIComponent(urlParams.get('name') || '');
+    const mode = urlParams.get('mode') || 'view';
 
-          if (viewOnly) {
-            document.querySelectorAll("input").forEach(i => i.disabled = true);
-            document.getElementById("saveBtn").style.display = "none";
-          }
-        });
-    }
+    const elements = {
+      name: document.getElementById('name'),
+      initial: document.getElementById('initial'),
+      sold: document.getElementById('sold'),
+      remaining: document.getElementById('remaining'),
+      reorder: document.getElementById('reorder'),
+      status: document.getElementById('status'),
+      lastBought: document.getElementById('lastBought'),
+      stockUsed: document.getElementById('stockUsed'),
+      stockBought: document.getElementById('stockBought'),
+      dateOfBuying: document.getElementById('dateOfBuying'),
+      saveBtn: document.getElementById('saveBtn'),
+      pageTitle: document.getElementById('pageTitle'),
+    };
 
-    function saveChanges() {
-      const updatedData = {
-        action: "update",
-        name: medicineName,
-        initial: parseInt(document.getElementById("initial").value),
-        sold: parseInt(document.getElementById("sold").value),
-        reorder: parseInt(document.getElementById("reorder").value),
-        lastBought: document.getElementById("lastBought").value
-      };
+    elements.saveBtn.style.display = mode === 'edit' ? 'inline-block' : 'none';
 
-      fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedData)
-      })
-      .then(() => window.location.href = "index.html");
-    }
+    async function loadMedicine() {
+      try {
+        const res = await fetch(API_URL + '?action=get');
+        const meds = await res.json();
+        const med = meds.find(m => m.name.toLowerCase() === medName.toLowerCase());
+        if (!med) {
+          alert('Medicine not found');
+          goBack();
+          return;
+        }
 
-    loadMedicine();
-  </script>
-
-</body>
-</html>
+        elements.name.value = med.name;
+       
