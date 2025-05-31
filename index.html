@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Medicine Stock Summary</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    .low { background-color: #ffcccc; }
+    .ok { background-color: #ccffcc; }
+    input, button { margin: 5px 0; padding: 8px; width: 100%; max-width: 400px; display: block; }
+    @media (max-width: 600px) {
+      th, td { font-size: 14px; padding: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <h2>Medicine Stock Summary</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>S.No</th>
+        <th>Medicine Name</th>
+        <th>Initial Stock</th>
+        <th>Units Sold</th>
+        <th>Remaining</th>
+        <th>Reorder Level</th>
+        <th>Status</th>
+        <th>Last Bought</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="medicineTable"></tbody>
+  </table>
+
+  <button onclick="location.href='details.html'">Add New Medicine</button>
+
+  <script>
+    const scriptURL = "https://script.google.com/macros/s/AKfycbyA41BWjuryz8_fpwEU_hoX31A6ma0En2MsZeygfnF51ALwAg6yuoGQEHZerJnGapl6zA/exec";
+
+    async function loadMedicines() {
+      const res = await fetch(scriptURL);
+      const data = await res.json();
+      const table = document.getElementById("medicineTable");
+      table.innerHTML = "";
+      data.forEach((med, index) => {
+        const remaining = med.initial - med.sold;
+        const status = remaining <= med.reorder ? "LOW STOCK" : "OK";
+        const row = document.createElement("tr");
+        row.className = status === "LOW STOCK" ? "low" : "ok";
+        row.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${med.name}</td>
+          <td>${med.initial}</td>
+          <td>${med.sold}</td>
+          <td>${remaining}</td>
+          <td>${med.reorder}</td>
+          <td>${status}</td>
+          <td>${med.lastBought || "-"}</td>
+          <td>
+            <button onclick="view('${med.name}')">View</button>
+            <button onclick="edit('${med.name}')">Edit</button>
+            <button onclick="deleteMed('${med.name}')">Delete</button>
+          </td>
+        `;
+        table.appendChild(row);
+      });
+    }
+
+    function view(name) {
+      window.location.href = `details.html?mode=view&name=${encodeURIComponent(name)}`;
+    }
+
+    function edit(name) {
+      window.location.href = `details.html?mode=edit&name=${encodeURIComponent(name)}`;
+    }
+
+    async function deleteMed(name) {
+      if (confirm(`Delete medicine "${name}"?`)) {
+        await fetch(`${scriptURL}?name=${encodeURIComponent(name)}`, { method: "DELETE" });
+        loadMedicines();
+      }
+    }
+
+    loadMedicines();
+  </script>
+</body>
+</html>
