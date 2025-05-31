@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Medicine Details</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    label { display: block; margin: 10px 0; }
+    input { padding: 8px; width: 100%; max-width: 400px; }
+    button { padding: 10px 20px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+  <h2>Medicine Details</h2>
+  <div id="formSection"></div>
+  <script>
+    const API = "https://script.google.com/macros/s/AKfycbyOlISL9ijvtRuSilhF1h_hJZwBFkWVeW5ac2sEhN8oBtHZyNU4LOzXiBhkj0lGO34rCw/exec";
+    const params = new URLSearchParams(location.search);
+    const name = params.get("name");
+    const mode = params.get("mode");
+    let medicines = [];
+
+    async function loadData() {
+      const res = await fetch(API);
+      medicines = await res.json();
+      const med = medicines.find(m => m.name === name);
+      if (!med) {
+        document.getElementById("formSection").innerHTML = "<p>Medicine not found.</p>";
+        return;
+      }
+
+      const form = `
+        <label>Medicine Name: <input id="name" value="${med.name}" ${mode === "view" ? "disabled" : ""}></label>
+        <label>Initial Stock: <input type="number" id="initial" value="${med.initial}" ${mode === "view" ? "disabled" : ""}></label>
+        <label>Units Sold: <input type="number" id="sold" value="${med.sold}" ${mode === "view" ? "disabled" : ""}></label>
+        <label>Reorder Level: <input type="number" id="reorder" value="${med.reorder}" ${mode === "view" ? "disabled" : ""}></label>
+        <label>Last Bought Date: <input id="lastBought" value="${med.lastBought || ""}" ${mode === "view" ? "disabled" : ""}></label>
+        ${mode === "edit" ? '<button onclick="saveChanges()">Save Changes</button>' : ""}
+        <button onclick="window.location.href='index.html'">Back</button>
+      `;
+      document.getElementById("formSection").innerHTML = form;
+    }
+
+    async function saveChanges() {
+      const updated = {
+        name: document.getElementById("name").value.trim(),
+        initial: parseInt(document.getElementById("initial").value),
+        sold: parseInt(document.getElementById("sold").value),
+        reorder: parseInt(document.getElementById("reorder").value),
+        lastBought: document.getElementById("lastBought").value
+      };
+
+      const index = medicines.findIndex(m => m.name === name);
+      if (index > -1) {
+        medicines[index] = updated;
+      }
+
+      await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ medicines }),
+      });
+
+      window.location.href = "index.html";
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
